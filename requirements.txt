@@ -8,3 +8,4 @@ Flask
 Flask-SQLAlchemy
 PyMySQL
 mysqlclient
+mysql-connector-python
