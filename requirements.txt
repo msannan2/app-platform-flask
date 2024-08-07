@@ -7,3 +7,4 @@ Werkzeug
 Flask
 Flask-SQLAlchemy
 PyMySQL
+mysqlclient
