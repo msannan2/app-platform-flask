@@ -80,6 +80,14 @@ def provision_resource():
 @app.route('/digitalocean/resources/<resource_uuid>', methods=['DELETE'])
 def deprovision_resource(resource_uuid):
 
+    new_request = Request(
+        method=request.method,
+        url=request.url,
+        payload=request.data.decode('utf-8')
+    )
+    db.session.add(new_request)
+    db.session.commit()
+
     if resource_uuid in resources:
         del resources[resource_uuid]
         return '', 204
@@ -88,6 +96,14 @@ def deprovision_resource(resource_uuid):
 
 @app.route('/digitalocean/resources/<resource_uuid>', methods=['PUT'])
 def change_plan(resource_uuid):
+
+    new_request = Request(
+        method=request.method,
+        url=request.url,
+        payload=request.data.decode('utf-8')
+    )
+    db.session.add(new_request)
+    db.session.commit()
 
     data = request.json
     if resource_uuid in resources:
@@ -99,6 +115,14 @@ def change_plan(resource_uuid):
 @app.route('/digitalocean/notifications', methods=['POST'])
 def handle_notifications():
 
+    new_request = Request(
+        method=request.method,
+        url=request.url,
+        payload=request.data.decode('utf-8')
+    )
+    db.session.add(new_request)
+    db.session.commit()
+
     data = request.json
     # Log the notification
     print(f"Notification received: {data}")
@@ -106,4 +130,13 @@ def handle_notifications():
 
 @app.route('/digitalocean/sso', methods=['POST'])
 def sso():
+
+    new_request = Request(
+        method=request.method,
+        url=request.url,
+        payload=request.data.decode('utf-8')
+    )
+    db.session.add(new_request)
+    db.session.commit()
+
     redirect("https://www.example.com/dashboard")
