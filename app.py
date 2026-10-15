@@ -1,7 +1,10 @@
+import hashlib
+import hmac
 import os
+import time
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
-from flask import Flask, app, request, jsonify, redirect, abort, render_template
+from flask import Flask, app, request, jsonify, redirect, abort, render_template, url_for
 
 app = Flask(__name__)
 
@@ -41,16 +44,34 @@ def dashboard():
     return render_template('dashboard.html', requests=requests)
 
 
-# # Helper function to verify DigitalOcean requests
-# def verify_request(auth_header):
-#     encoded_credentials = base64.b64encode(f"{app_slug}:{app_password}".encode()).decode()
-#     return auth_header == f"Basic {encoded_credentials}"
+# Reject SSO tokens older than this. DigitalOcean recommends a minute or two.
+SSO_MAX_AGE_SECONDS = 120
 
-# # Helper function to verify SSO requests
-# def verify_sso_token(resource_uuid, token, timestamp):
-#     message = f"{timestamp}:{resource_uuid}".encode()
-#     digest = hmac.new(app_salt.encode(), message, hashlib.sha256).hexdigest()
-#     return hmac.compare_digest(digest, token)
+
+def verify_sso_token(resource_uuid, auth_token, timestamp, user_id, user_email, salt):
+    """Validate DigitalOcean's auth_token.
+
+    The token is hex(HMAC-SHA256(salt, "timestamp:resource_uuid:user_id:user_email")).
+    See https://marketplace.digitalocean.com/vendors/saas-api-docs
+    """
+    if not auth_token or timestamp is None:
+        return False
+    try:
+        issued_at = int(timestamp)
+    except (TypeError, ValueError):
+        return False
+    if abs(int(time.time()) - issued_at) > SSO_MAX_AGE_SECONDS:
+        return False
+
+    message = f"{timestamp}:{resource_uuid}:{user_id}:{user_email}".encode()
+    digest = hmac.new(salt.encode(), message, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(digest, auth_token)
+
+
+def _sso_form():
+    if request.method == "POST":
+        return request.form
+    return request.args
 
 @app.route('/digitalocean/resources', methods=['POST'])
 def provision_resource():
@@ -128,15 +149,35 @@ def handle_notifications():
     print(f"Notification received: {data}")
     return '', 204
 
-@app.route('/digitalocean/sso', methods=['POST'])
+@app.route('/digitalocean/sso', methods=['GET', 'POST'])
+@app.route('/dashboard/digitalocean/sso', methods=['GET', 'POST'])
 def sso():
+    # DigitalOcean posts the SSO form to {base}/digitalocean/sso.
+    # This listing's Open dashboard button calls /dashboard/digitalocean/sso,
+    # so both paths land on the same handler and then the real dashboard.
+    payload = request.get_data(as_text=True)
+    if not payload and request.query_string:
+        payload = request.query_string.decode('utf-8')
 
     new_request = Request(
         method=request.method,
         url=request.url,
-        payload=request.data.decode('utf-8')
+        payload=payload
     )
     db.session.add(new_request)
     db.session.commit()
 
-    redirect("https://www.example.com/dashboard")
+    salt = os.getenv("DIGITALOCEAN_SSO_SALT")
+    if salt:
+        form = _sso_form()
+        if not verify_sso_token(
+            form.get("resource_uuid", ""),
+            form.get("auth_token", ""),
+            form.get("timestamp", ""),
+            form.get("user_id", ""),
+            form.get("user_email", ""),
+            salt,
+        ):
+            abort(401)
+
+    return redirect(url_for("dashboard"))
