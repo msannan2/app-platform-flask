@@ -38,9 +38,18 @@ def handle_request():
     db.session.commit()
     return jsonify({"message": "Request saved"}), 201
 
+# The request log grows without bound. Rendering every row makes a multi-megabyte
+# page that browsers never finish painting.
+DASHBOARD_REQUEST_LIMIT = 100
+
+
 @app.route('/dashboard')
 def dashboard():
-    requests = Request.query.all()
+    requests = (
+        Request.query.order_by(Request.id.desc())
+        .limit(DASHBOARD_REQUEST_LIMIT)
+        .all()
+    )
     return render_template('dashboard.html', requests=requests)
 
 

@@ -120,14 +120,27 @@
       .table-container {
         overflow-x: auto;
         background: white;
+        color: #212529;
         padding: 15px;
         border-radius: 8px;
       }
 
+      .request-count {
+        color: #212529;
+        font-size: 0.95rem;
+        margin-bottom: 0.75rem;
+        text-align: left;
+      }
+
       th,
       td {
+        color: #212529;
         text-align: center;
         vertical-align: middle;
+      }
+
+      .thead-dark th {
+        color: #fff;
       }
 
       .logo {
@@ -171,6 +184,7 @@
       </div>
 
       <div class="table-container">
+        <p class="request-count">Showing the {{ requests|length }} most recent requests.</p>
         <table class="table table-bordered table-striped">
           <thead class="thead-dark">
             <tr>
@@ -218,28 +232,24 @@
         const collapsibles = document.querySelectorAll(".collapsible");
         collapsibles.forEach((collapsible) => {
           collapsible.addEventListener("click", function () {
-            this.nextElementSibling.classList.toggle("collapsible-content");
-            if (this.innerText === "Click to view JSON") {
-              this.innerText = "Click to hide JSON";
-              this.nextElementSibling.style.display = "block";
+            const content = this.nextElementSibling;
+            if (!content.dataset.formatted) {
+              try {
+                const parsed = JSON.parse(content.textContent);
+                content.textContent = JSON.stringify(parsed, null, 2);
+              } catch (e) {
+                // Payloads are not always JSON; show the raw text.
+              }
+              content.dataset.formatted = "1";
+            }
+            if (content.style.display === "block") {
+              this.textContent = "Click to view JSON";
+              content.style.display = "none";
             } else {
-              this.innerText = "Click to view JSON";
-              this.nextElementSibling.style.display = "none";
+              this.textContent = "Click to hide JSON";
+              content.style.display = "block";
             }
           });
-        });
-      });
-
-      document.addEventListener("DOMContentLoaded", function () {
-        const jsonViews = document.querySelectorAll(".json-view .collapsible-content");
-        jsonViews.forEach((view) => {
-          const json = view.innerText;
-          try {
-            const parsedJson = JSON.parse(json);
-            view.innerText = JSON.stringify(parsedJson, null, 2);
-          } catch (e) {
-            console.error("Invalid JSON:", e);
-          }
         });
       });
     </script>
